@@ -7,9 +7,48 @@ import click
 from tabulate import tabulate
 import requests
 
+
+def oidc_discover(checkin_url):
+    # discover oidc endpoints
+    r = requests.get(checkin_url + "/.well-known/openid-configuration")
+    r.raise_for_status()
+    return r.json()
+
+
+def token_refresh(
+    checkin_client_id, checkin_client_secret, checkin_refresh_token, token_url
+):
+    """Mananages Check-in tokens"""
+    refresh_data = {
+        "client_id": checkin_client_id,
+        "client_secret": checkin_client_secret,
+        "grant_type": "refresh_token",
+        "refresh_token": checkin_refresh_token,
+        "scope": "openid email profile",
+    }
+    r = requests.post(
+        token_url, auth=(checkin_client_id, checkin_client_secret), data=refresh_data
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def refresh_access_token(
+    checkin_client_id, checkin_client_secret, checkin_refresh_token, checkin_url
+):
+    oidc_ep = oidc_discover(checkin_url)
+    return token_refresh(
+        checkin_client_id,
+        checkin_client_secret,
+        checkin_refresh_token,
+        oidc_ep["token_endpoint"],
+    )["access_token"]
+
+
 @click.group()
 def token():
     pass
+
 
 @token.command()
 @click.option(
@@ -44,42 +83,26 @@ def refresh(
     checkin_url,
     list_vos,
 ):
-    """Mananages Check-in tokens"""
-    # discover oidc refresh token endpoint
-    r = requests.get(checkin_url + "/.well-known/openid-configuration")
-    r.raise_for_status()
-    token_ep = r.json()["token_endpoint"]
-    userinfo_ep = r.json()["userinfo_endpoint"]
-    refresh_data = {
-        "client_id": checkin_client_id,
-        "client_secret": checkin_client_secret,
-        "grant_type": "refresh_token",
-        "refresh_token": checkin_refresh_token,
-        "scope": "openid email profile",
-    }
-    r = requests.post(
-        token_ep, auth=(checkin_client_id, checkin_client_secret), data=refresh_data
+    oidc_ep = oidc_discover(checkin_url)
+    output = token_refresh(
+        checkin_client_id,
+        checkin_client_secret,
+        checkin_refresh_token,
+        oidc_ep["token_endpoint"],
     )
-    r.raise_for_status()
-    output = r.json()
-    access_token = output['access_token']
-
-    # shall we also to get the user info?
+    access_token = output["access_token"]
+    # shall we also get the user info?
     if list_vos:
         r = requests.get(
-            userinfo_ep,
+            oidc_ep["userinfo_endpoint"],
             headers={"Authorization": "Bearer %s" % access_token},
         )
         r.raise_for_status()
         vos = []
-        m = re.compile('urn:mace:egi.eu:group:(.*.):role=member#aai.egi.eu')
-        for claim in r.json().get('eduperson_entitlement', []):
+        m = re.compile("urn:mace:egi.eu:group:(.*.):role=member#aai.egi.eu")
+        for claim in r.json().get("eduperson_entitlement", []):
             vo = m.match(claim)
             if vo:
                 vos.append(vo.groups()[0])
-        output["VOs"] = '\n'.join(vos)
-#'urn:mace:egi.eu:group:dih-voucher02.eosc-hub.eu:role=member#aai.egi.eu
-
- #       print(r.json())
-    #print(output)
-    print(tabulate([(k, v) for k,v in output.items()], headers=["Field", "Value"]))
+        output["VOs"] = "\n".join(vos)
+    print(tabulate([(k, v) for k, v in output.items()], headers=["Field", "Value"]))
