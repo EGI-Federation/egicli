@@ -241,20 +241,6 @@ def list(service_type, production, monitored, site):
 
 @endpoint.command()
 @click.option(
-    "--service-type", default="org.openstack.nova", help="Service type in GOCDB"
-)
-@click.option("--production/--not-producton", default=True, help="Production status")
-@click.option("--monitored/--not-monitored", default=True, help="Monitoring status")
-@click.option(
-    "--site", help="Name of the site", default=lambda: os.environ.get("EGI_SITE", None)
-)
-def show(service_type, production, monitored, site):
-    endpoints = find_endpoint(service_type, production, monitored, site)
-    print(tabulate(endpoints, headers=["Site", "type", "URL"]))
-
-
-@endpoint.command()
-@click.option(
     "--checkin-client-id",
     help="Check-in client id",
     required=True,
