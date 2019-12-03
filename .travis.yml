@@ -1,0 +1,12 @@
+---
+language: python
+python:
+  - "2.7"
+  - "3.6"
+install:
+  - gem install mdl
+  - pip install tox
+script:
+  # First syntax, linting and pre-test stages
+  - mdl -s relaxed README.md
+  - tox -e pep8,bandit

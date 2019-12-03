@@ -1,0 +1,5 @@
+click
+tabulate
+requests
+six
+defusedxml
