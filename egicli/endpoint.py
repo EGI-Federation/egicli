@@ -14,14 +14,32 @@ from egicli.checkin import refresh_access_token
 GOCDB_PUBLICURL = "https://goc.egi.eu/gocdbpi/public/"
 
 
+def get_sites():
+    q = {"method": "get_site_list", "certification_status": "Certified"}
+    url = "?".join([GOCDB_PUBLICURL, parse.urlencode(q)])
+    r = requests.get(url)
+    sites = []
+    if r.status_code == 200:
+        root = ET.fromstring(r.text)
+        for s in root:
+            sites.append(s.attrib.get('NAME'))
+    else:
+        print("Something went wrong...")
+        print(r.status)
+        print(r.text)
+    return sites
+
+
 def find_endpoint(service_type, production=True, monitored=True, site=None):
     q = {"method": "get_service_endpoint", "service_type": service_type}
     if monitored:
         q["monitored"] = "Y"
     if site:
         q["sitename"] = site
+        sites = [site]
+    else:
+        sites = get_sites()
     url = "?".join([GOCDB_PUBLICURL, parse.urlencode(q)])
-    # XXX UGLY, but GOC is using a IGTF CA not in standard distros
     r = requests.get(url)
     endpoints = []
     if r.status_code == 200:
@@ -32,6 +50,9 @@ def find_endpoint(service_type, production=True, monitored=True, site=None):
                 if prod != "Y":
                     continue
             os_url = sp.find("URL").text
+            ep_site = sp.find('SITENAME').text
+            if ep_site not in sites:
+                continue
             # os_url = urlparse.urlparse(sp.find('URL').text)
             # sites[sp.find('SITENAME').text] = urlparse.urlunparse(
             #    (os_url[0], os_url[1], os_url[2], '', '', ''))
