@@ -124,6 +124,7 @@ Options:
 ```
 
 List all OpenStack sites:
+
 ```
 $ egicli endpoint list
 Site                type                URL
@@ -147,6 +148,7 @@ CESGA               org.openstack.nova  https://fedcloud-osservices.egi.cesga.es
 ```
 
 List OCCI endpoints at CESGA:
+
 ```
 $ egicli endpoint list --service-type 'eu.egi.cloud.vm-management.occi' --site CESGA
 Site    type                             URL
@@ -172,6 +174,7 @@ Options:
 ```
 
 List of projects for CESNET-MCC site:
+
 ```
 $ egicli endpoint projects --site CESNET-MCC
 id                                Name                  enabled    site
