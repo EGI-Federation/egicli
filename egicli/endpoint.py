@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import os
 import json
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 import click
 from six.moves.urllib import parse
