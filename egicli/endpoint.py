@@ -152,8 +152,8 @@ def endpoint():
     default=lambda: os.environ.get("CHECKIN_OIDC_URL", "https://aai.egi.eu/oidc"),
 )
 @click.option(
-    "--site", 
-    help="Name of the site", 
+    "--site",
+    help="Name of the site",
     default=lambda: os.environ.get("EGI_SITE", None),
 )
 def projects(
