@@ -151,7 +151,11 @@ def endpoint():
     required=True,
     default=lambda: os.environ.get("CHECKIN_OIDC_URL", "https://aai.egi.eu/oidc"),
 )
-@click.option("--site", help="Name of the site")
+@click.option(
+    "--site", 
+    help="Name of the site", 
+    default=lambda: os.environ.get("EGI_SITE", None),
+)
 def projects(
     checkin_client_id, checkin_client_secret, checkin_refresh_token, checkin_url, site
 ):
@@ -204,7 +208,7 @@ def projects(
     "--project-id",
     help="Project ID",
     required=True,
-    default=lambda: os.environ.get("OS_PORJECT_ID", None),
+    default=lambda: os.environ.get("OS_PROJECT_ID", None),
 )
 def token(
     checkin_client_id,
@@ -274,7 +278,7 @@ def list(service_type, production, monitored, site):
     "--project-id",
     help="Project ID",
     required=True,
-    default=lambda: os.environ.get("OS_PORJECT_ID", None),
+    default=lambda: os.environ.get("OS_PROJECT_ID", None),
 )
 def env(
     checkin_client_id,
