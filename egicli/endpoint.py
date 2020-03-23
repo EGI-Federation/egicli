@@ -94,7 +94,7 @@ def get_scoped_token(os_auth_url, access_token, project_id):
             "scope": {"project": {"id": project_id}},
         }
     }
-    r = requests.post(url, data=json.dumps(body))
+    r = requests.post(url, json=body)
     if r.status_code != requests.codes.created:
         raise RuntimeError("Unable to get an scoped token")
     else:
