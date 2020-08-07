@@ -232,7 +232,7 @@ def token(
 @click.option(
     "--service-type", default="org.openstack.nova", help="Service type in GOCDB"
 )
-@click.option("--production/--not-producton", default=True, help="Production status")
+@click.option("--production/--not-production", default=True, help="Production status")
 @click.option("--monitored/--not-monitored", default=True, help="Monitoring status")
 @click.option(
     "--site", help="Name of the site", default=lambda: os.environ.get("EGI_SITE", None)
