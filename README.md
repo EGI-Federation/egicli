@@ -117,7 +117,7 @@ Usage: egicli endpoint list [OPTIONS]
 
 Options:
   --service-type TEXT             Service type in GOCDB
-  --production / --not-producton  Production status
+  --production / --not-production  Production status
   --monitored / --not-monitored   Monitoring status
   --site TEXT                     Name of the site
   --help                          Show this message and exit.
