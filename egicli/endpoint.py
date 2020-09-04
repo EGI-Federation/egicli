@@ -37,7 +37,7 @@ configure front (
     - cron:
         name: "refresh token"
         minute: "*/5"
-        job: "[ -f /usr/local/ec3/auth.dat ] && egicli ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file '/usr/local/ec3/auth.dat'"
+        job: "[ -f /usr/local/ec3/auth.dat ] && egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file '/usr/local/ec3/auth.dat'"
         user: root
         cron_file: refresh_token
         state: present
