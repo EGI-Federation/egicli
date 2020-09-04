@@ -1,12 +1,15 @@
 from __future__ import print_function
 
 import os
+import time
 import defusedxml.ElementTree as ET
 
 import click
+import jwt
 from six.moves.urllib import parse
 import requests
 from tabulate import tabulate
+
 
 from egicli.checkin import refresh_access_token
 
@@ -28,13 +31,13 @@ configure front (
     tasks:
     - name: Create dir /usr/local/ec3/
       file: path=/usr/local/ec3/ state=directory
-    - name: Get egicli 
+    - name: Get egicli
       pip:
         name: git+http://github.com/enolfc/egicli@ec3
     - cron:
         name: "refresh token"
         minute: "*/5"
-        job: "[ -f /usr/local/ec3/auth.dat ] && egicli ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file '/usr/local/ec3/auth.dat"
+        job: "[ -f /usr/local/ec3/auth.dat ] && egicli ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file '/usr/local/ec3/auth.dat'"
         user: root
         cron_file: refresh_token
         state: present
@@ -307,6 +310,20 @@ def ec3_refresh(
                 auth_tokens = []
                 for token in line.split(";"):
                     if token.strip().startswith("password"):
+                        access_token = token.split("=")[1].strip()
+                        if access_token[0] in ["'", '"']:
+                            access_token = access_token[1:-1]
+                        # FIXME(enolfc): add verification
+                        payload = jwt.decode(access_token, verify=False)
+                        now = int(time.time())
+                        expires = int(payload['exp'])
+                        if expires - now < 300:
+                            access_token = refresh_access_token(
+                                checkin_client_id,
+                                checkin_client_secret,
+                                checkin_refresh_token,
+                                checkin_url
+                            )
                         auth_tokens.append("password = %s" % access_token)
                     else:
                         auth_tokens.append(token)
@@ -363,6 +380,7 @@ def ec3_refresh(
     required=True,
     default="./templates",
 )
+@click.option("--force", is_flag=True, help="Force rewrite of files")
 def ec3(
     checkin_client_id,
     checkin_client_secret,
@@ -372,11 +390,15 @@ def ec3(
     project_id,
     auth_file,
     template_dir,
+    force,
 ):
-    # Get the right endpoint from GOCDB
+    if os.path.exists(auth_file) and not force:
+        print("Auth file already exists, not replacing unless --force option is included")
+        raise click.Abort()
     access_token = refresh_access_token(
         checkin_client_id, checkin_client_secret, checkin_refresh_token, checkin_url
     )
+    # Get the right endpoint from GOCDB
     # assume first one is ok
     ep = find_endpoint("org.openstack.nova", site=site).pop()
     os_auth_url = ep[2]
@@ -400,10 +422,11 @@ def ec3(
     with open(auth_file, "w+") as f:
         f.write("\n".join(auth_file_contents))
     if not os.path.exists(template_dir):
-        os.mkdir(template_dir) 
+        os.mkdir(template_dir)
     with open(os.path.join(template_dir, "refresh.radl"), "w+") as f:
         v = dict(client_id=checkin_client_id,
-                 client_secret=checkin_client_secret)
+                 client_secret=checkin_client_secret,
+                 refresh_token=checkin_refresh_token)
         f.write(EC3_REFRESHTOKEN_TEMPLATE % v)
 
 

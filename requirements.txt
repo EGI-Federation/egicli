@@ -3,3 +3,4 @@ tabulate
 requests
 six
 defusedxml
+pyjwt
