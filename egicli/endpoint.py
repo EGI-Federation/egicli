@@ -37,7 +37,7 @@ configure front (
     - cron:
         name: "refresh token"
         minute: "*/5"
-        job: "[ -f /usr/local/ec3/auth.dat ] && egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file '/usr/local/ec3/auth.dat'"
+        job: "[ -f /usr/local/ec3/auth.dat ] && egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file /usr/local/ec3/auth.dat &> /var/log/refresh.log"
         user: root
         cron_file: refresh_token
         state: present
@@ -306,9 +306,10 @@ def ec3_refresh(
     auth_file_contents = []
     with open(auth_file, "r") as f:
         for line in f.readlines():
-            if 'OpenStack' in line:
+            l = line.strip()
+            if 'OpenStack' in l:
                 auth_tokens = []
-                for token in line.split(";"):
+                for token in l.split(";"):
                     if token.strip().startswith("password"):
                         access_token = token.split("=")[1].strip()
                         if access_token[0] in ["'", '"']:
@@ -326,10 +327,10 @@ def ec3_refresh(
                             )
                         auth_tokens.append("password = %s" % access_token)
                     else:
-                        auth_tokens.append(token)
+                        auth_tokens.append(token.strip())
                 auth_file_contents.append("; ".join(auth_tokens))
-            else:
-                auth_file_contents.append(line)
+            elif l:
+                auth_file_contents.append(l)
     with open(auth_file, "w+") as f:
         f.write("\n".join(auth_file_contents))
 
