@@ -24,7 +24,7 @@ def token_refresh(
         "client_secret": checkin_client_secret,
         "grant_type": "refresh_token",
         "refresh_token": checkin_refresh_token,
-        "scope": "openid email profile",
+        "scope": "openid email profile offline_access",
     }
     r = requests.post(
         token_url, auth=(checkin_client_id, checkin_client_secret), data=refresh_data

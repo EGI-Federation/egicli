@@ -1,16 +1,72 @@
 from __future__ import print_function
 
 import os
+import time
 import defusedxml.ElementTree as ET
 
 import click
+import jwt
 from six.moves.urllib import parse
 import requests
 from tabulate import tabulate
 
+
 from egicli.checkin import refresh_access_token
 
 GOCDB_PUBLICURL = "https://goc.egi.eu/gocdbpi/public/"
+
+
+EC3_REFRESHTOKEN_TEMPLATE = """
+description refreshtoken (
+    kind = 'component' and
+    short = 'Tool to refresh LToS access token.' and
+    content = 'Tool to refresh LToS access token.'
+)
+configure front (
+@begin
+  - vars:
+      CLIENT_ID: %(client_id)s
+      CLIENT_SECRET: %(client_secret)s
+      REFRESH_TOKEN: %(refresh_token)s
+    tasks:
+    - name: Check if docker is available
+      command: which docker
+      changed_when: false
+      failed_when: docker_installed.rc not in [0,1]
+      register: docker_installed
+    - name: local install of egicli
+      block:
+      - name: Create dir /usr/local/ec3/
+        file: path=/usr/local/ec3/ state=directory
+      - name: install git
+        package:
+          name: git
+          state: present
+      - name: install egicli
+        pip:
+          name:
+          - git+http://github.com/enolfc/egicli@ec3
+      - cron:
+          name: "refresh token"
+          minute: "*/5"
+          job: "[ -f /usr/local/ec3/auth.dat ] && /usr/local/bin/egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file /usr/local/ec3/auth.dat &> /var/log/refresh.log"
+          user: root
+          cron_file: refresh_token
+          state: present
+      when: docker_installed.rc not in [ 0 ]
+    - name: local install of egicli
+      block:
+      - cron:
+          name: "refresh token"
+          minute: "*/5"
+          job: "[ -f /usr/local/ec3/auth.dat ] && docker run -v /usr/local/ec3/auth.dat:/usr/local/ec3/auth.dat egifedcloud/egicli egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file /usr/local/ec3/auth.dat &> /var/log/refresh.log"
+          user: root
+          cron_file: refresh_token
+          state: present
+      when: docker_installed.rc not in [ 1 ]
+@end
+)
+"""
 
 
 def get_sites():
@@ -226,6 +282,176 @@ def token(
     os_auth_url = ep[2]
     token, _ = get_scoped_token(os_auth_url, access_token, project_id)
     print('export OS_TOKEN="%s"' % token)
+
+
+@endpoint.command()
+@click.option(
+    "--checkin-client-id",
+    help="Check-in client id",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_CLIENT_ID", None),
+)
+@click.option(
+    "--checkin-client-secret",
+    help="Check-in client secret",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_CLIENT_SECRET", None),
+)
+@click.option(
+    "--checkin-refresh-token",
+    help="Check-in client id",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_REFRESH_TOKEN", None),
+)
+@click.option(
+    "--checkin-url",
+    help="Check-in OIDC URL",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_OIDC_URL", "https://aai.egi.eu/oidc"),
+)
+@click.option(
+    "--auth-file",
+    help="Authorization file",
+    required=True,
+    default="auth.dat",
+)
+def ec3_refresh(
+    checkin_client_id,
+    checkin_client_secret,
+    checkin_refresh_token,
+    checkin_url,
+    auth_file,
+):
+    # Get the right endpoint from GOCDB
+    access_token = refresh_access_token(
+        checkin_client_id, checkin_client_secret, checkin_refresh_token, checkin_url
+    )
+    auth_file_contents = []
+    with open(auth_file, "r") as f:
+        for raw_line in f.readlines():
+            line = raw_line.strip()
+            if 'OpenStack' in line:
+                auth_tokens = []
+                for token in line.split(";"):
+                    if token.strip().startswith("password"):
+                        access_token = token.split("=")[1].strip()
+                        if access_token[0] in ["'", '"']:
+                            access_token = access_token[1:-1]
+                        # FIXME(enolfc): add verification
+                        payload = jwt.decode(access_token, verify=False)
+                        now = int(time.time())
+                        expires = int(payload['exp'])
+                        if expires - now < 300:
+                            access_token = refresh_access_token(
+                                checkin_client_id,
+                                checkin_client_secret,
+                                checkin_refresh_token,
+                                checkin_url
+                            )
+                        auth_tokens.append("password = %s" % access_token)
+                    else:
+                        auth_tokens.append(token.strip())
+                auth_file_contents.append("; ".join(auth_tokens))
+            elif line:
+                auth_file_contents.append(line)
+    with open(auth_file, "w+") as f:
+        f.write("\n".join(auth_file_contents))
+
+
+@endpoint.command()
+@click.option(
+    "--checkin-client-id",
+    help="Check-in client id",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_CLIENT_ID", None),
+)
+@click.option(
+    "--checkin-client-secret",
+    help="Check-in client secret",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_CLIENT_SECRET", None),
+)
+@click.option(
+    "--checkin-refresh-token",
+    help="Check-in client id",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_REFRESH_TOKEN", None),
+)
+@click.option(
+    "--checkin-url",
+    help="Check-in OIDC URL",
+    required=True,
+    default=lambda: os.environ.get("CHECKIN_OIDC_URL", "https://aai.egi.eu/oidc"),
+)
+@click.option(
+    "--site", help="Name of the site", default=lambda: os.environ.get("EGI_SITE", None)
+)
+@click.option(
+    "--project-id",
+    help="Project ID",
+    required=True,
+    default=lambda: os.environ.get("OS_PROJECT_ID", None),
+)
+@click.option(
+    "--auth-file",
+    help="Authorization file",
+    required=True,
+    default="auth.dat",
+)
+@click.option(
+    "--template-dir",
+    help="EC3 templates dir",
+    required=True,
+    default="./templates",
+)
+@click.option("--force", is_flag=True, help="Force rewrite of files")
+def ec3(
+    checkin_client_id,
+    checkin_client_secret,
+    checkin_refresh_token,
+    checkin_url,
+    site,
+    project_id,
+    auth_file,
+    template_dir,
+    force,
+):
+    if os.path.exists(auth_file) and not force:
+        print("Auth file already exists, not replacing unless --force option is included")
+        raise click.Abort()
+    access_token = refresh_access_token(
+        checkin_client_id, checkin_client_secret, checkin_refresh_token, checkin_url
+    )
+    # Get the right endpoint from GOCDB
+    # assume first one is ok
+    ep = find_endpoint("org.openstack.nova", site=site).pop()
+    os_auth_url = ep[2]
+    site_auth = [
+        "id = %s" % site,
+        "type = OpenStack",
+        "username = egi.eu",
+        "tenant = openid",
+        "auth_version = 3.x_oidc_access_token",
+        "host = %s" % os_auth_url,
+        "domain = %s" % project_id,
+        "password = '%s'" % access_token
+    ]
+    auth_file_contents = [";".join(site_auth)]
+    if os.path.exists(auth_file):
+        with open(auth_file, "r") as f:
+            for line in f.readlines():
+                if 'OpenStack' in line:
+                    continue
+                auth_file_contents.append(line)
+    with open(auth_file, "w+") as f:
+        f.write("\n".join(auth_file_contents))
+    if not os.path.exists(template_dir):
+        os.mkdir(template_dir)
+    with open(os.path.join(template_dir, "refresh.radl"), "w+") as f:
+        v = dict(client_id=checkin_client_id,
+                 client_secret=checkin_client_secret,
+                 refresh_token=checkin_refresh_token)
+        f.write(EC3_REFRESHTOKEN_TEMPLATE % v)
 
 
 @endpoint.command()
