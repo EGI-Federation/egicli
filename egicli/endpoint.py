@@ -29,18 +29,41 @@ configure front (
       CLIENT_SECRET: %(client_secret)s
       REFRESH_TOKEN: %(refresh_token)s
     tasks:
-    - name: Create dir /usr/local/ec3/
-      file: path=/usr/local/ec3/ state=directory
-    - name: Get egicli
-      pip:
-        name: git+http://github.com/enolfc/egicli@ec3
-    - cron:
-        name: "refresh token"
-        minute: "*/5"
-        job: "[ -f /usr/local/ec3/auth.dat ] && egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file /usr/local/ec3/auth.dat &> /var/log/refresh.log"
-        user: root
-        cron_file: refresh_token
-        state: present
+    - name: Check if docker is available
+      command: which docker
+      changed_when: false
+      failed_when: docker_installed.rc not in [0,1]
+      register: docker_installed
+    - name: local install of egicli
+      block:
+      - name: Create dir /usr/local/ec3/
+        file: path=/usr/local/ec3/ state=directory
+      - name: install git
+        package:
+          name: git
+          state: present
+      - name: upgrade pip
+        pip:
+          name:
+          - git+http://github.com/enolfc/egicli@ec3
+      - cron:
+          name: "refresh token"
+          minute: "*/5"
+          job: "[ -f /usr/local/ec3/auth.dat ] && egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file /usr/local/ec3/auth.dat &> /var/log/refresh.log"
+          user: root
+          cron_file: refresh_token
+          state: present
+      when: docker_installed.rc not in [ 0 ]
+    - name: local install of egicli
+      block:
+      - cron:
+          name: "refresh token"
+          minute: "*/5"
+          job: "[ -f /usr/local/ec3/auth.dat ] && docker run -v /usr/local/ec3/auth.dat:/usr/local/ec3/auth.dat egifedcloud/egicli egicli endpoint ec3-refresh --checkin-client-id {{ CLIENT_ID }} --checkin-client-secret {{ CLIENT_SECRET }} --checkin-refresh-token {{ REFRESH_TOKEN }} --auth-file /usr/local/ec3/auth.dat &> /var/log/refresh.log"
+          user: root
+          cron_file: refresh_token
+          state: present
+      when: docker_installed.rc not in [ 1 ]
 @end
 )
 """
