@@ -328,11 +328,11 @@ def ec3_refresh(
     )
     auth_file_contents = []
     with open(auth_file, "r") as f:
-        for line in f.readlines():
-            l = line.strip()
-            if 'OpenStack' in l:
+        for raw_line in f.readlines():
+            line = raw_line.strip()
+            if 'OpenStack' in line:
                 auth_tokens = []
-                for token in l.split(";"):
+                for token in line.split(";"):
                     if token.strip().startswith("password"):
                         access_token = token.split("=")[1].strip()
                         if access_token[0] in ["'", '"']:
@@ -352,8 +352,8 @@ def ec3_refresh(
                     else:
                         auth_tokens.append(token.strip())
                 auth_file_contents.append("; ".join(auth_tokens))
-            elif l:
-                auth_file_contents.append(l)
+            elif line:
+                auth_file_contents.append(line)
     with open(auth_file, "w+") as f:
         f.write("\n".join(auth_file_contents))
 
