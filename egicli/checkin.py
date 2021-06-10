@@ -21,14 +21,15 @@ def token_refresh(
     """Mananages Check-in tokens"""
     refresh_data = {
         "client_id": checkin_client_id,
-        "client_secret": checkin_client_secret,
         "grant_type": "refresh_token",
         "refresh_token": checkin_refresh_token,
         "scope": "openid email profile eduperson_entitlement",
     }
-    r = requests.post(
-        token_url, auth=(checkin_client_id, checkin_client_secret), data=refresh_data
-    )
+    auth=None
+    if checkin_client_secret:
+        auth=(checkin_client_id, checkin_client_secret)
+        refresh_data.update({"client_secret": checkin_client_secret})
+    r = requests.post(token_url, auth=None, data=refresh_data)
     r.raise_for_status()
     return r.json()
 
@@ -60,7 +61,7 @@ def token():
 @click.option(
     "--checkin-client-secret",
     help="Check-in client secret",
-    required=True,
+    required=False,
     default=lambda: os.environ.get("CHECKIN_CLIENT_SECRET", None),
 )
 @click.option(
