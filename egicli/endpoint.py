@@ -191,7 +191,7 @@ def endpoint():
 @click.option(
     "--checkin-client-secret",
     help="Check-in client secret",
-    required=True,
+    required=False,
     default=lambda: os.environ.get("CHECKIN_CLIENT_SECRET", None),
 )
 @click.option(
@@ -241,7 +241,7 @@ def projects(
 @click.option(
     "--checkin-client-secret",
     help="Check-in client secret",
-    required=True,
+    required=False,
     default=lambda: os.environ.get("CHECKIN_CLIENT_SECRET", None),
 )
 @click.option(
@@ -294,7 +294,7 @@ def token(
 @click.option(
     "--checkin-client-secret",
     help="Check-in client secret",
-    required=True,
+    required=False,
     default=lambda: os.environ.get("CHECKIN_CLIENT_SECRET", None),
 )
 @click.option(
@@ -478,7 +478,7 @@ def list(service_type, production, monitored, site):
 @click.option(
     "--checkin-client-secret",
     help="Check-in client secret",
-    required=True,
+    required=False,
     default=lambda: os.environ.get("CHECKIN_CLIENT_SECRET", None),
 )
 @click.option(
