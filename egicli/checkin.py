@@ -29,7 +29,7 @@ def token_refresh(
     if checkin_client_secret:
         auth=(checkin_client_id, checkin_client_secret)
         refresh_data.update({"client_secret": checkin_client_secret})
-    r = requests.post(token_url, auth=None, data=refresh_data)
+    r = requests.post(token_url, auth, data=refresh_data)
     r.raise_for_status()
     return r.json()
 
