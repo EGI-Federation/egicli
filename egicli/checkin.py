@@ -25,11 +25,11 @@ def token_refresh(
         "refresh_token": checkin_refresh_token,
         "scope": "openid email profile eduperson_entitlement",
     }
-    auth=None
+    auth = None
     if checkin_client_secret:
         auth=(checkin_client_id, checkin_client_secret)
         refresh_data.update({"client_secret": checkin_client_secret})
-    r = requests.post(token_url, auth, data=refresh_data)
+    r = requests.post(token_url, auth=auth, data=refresh_data)
     r.raise_for_status()
     return r.json()
 
